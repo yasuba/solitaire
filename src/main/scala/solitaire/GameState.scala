@@ -32,6 +32,22 @@ final case class GameState(
     if (current.stock.isEmpty) recycleWaste.copy(history = this.current :: history)
     else drawFromStock.copy(history = this.current :: history)
   }
+
+  def applyMove(newModel: SolitaireModel): GameState =
+    copy(
+      current = newModel,
+      history = current :: history,
+      started = true
+    )
+
+  def undo: GameState =
+    history match
+      case Nil => this
+      case previous :: rest =>
+        copy(
+          current = previous,
+          history = rest
+        )  
 }
 
 object GameState:
@@ -46,3 +62,4 @@ object GameState:
       Size(800, 600),
       false
     )
+    
