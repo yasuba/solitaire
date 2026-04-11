@@ -3,12 +3,12 @@ package solitaire
 import indigo.*
 import indigo.scenes.{Scene, SceneName}
 
-object Main extends IndigoGame[Unit, Unit, GameState, Unit] {
+object Main extends IndigoGame[Unit, Unit, GameState, SolitaireViewModel] {
 
   def main(args: Array[String]): Unit =
     launch("indigo-container")
 
-  override def scenes(bootData: Unit): NonEmptyList[Scene[Unit, GameState, Unit]] = NonEmptyList(HomeScene)
+  override def scenes(bootData: Unit): NonEmptyList[Scene[Unit, GameState, SolitaireViewModel]] = NonEmptyList(HomeScene)
 
   override def initialScene(bootData: Unit): Option[SceneName] = Some(HomeScene.name)
 
@@ -29,11 +29,11 @@ object Main extends IndigoGame[Unit, Unit, GameState, Unit] {
     Outcome(GameState.initial)
 
 
-  override def initialViewModel(startupData: Unit, model: GameState): Outcome[Unit] = Outcome(())
+  override def initialViewModel(startupData: Unit, model: GameState): Outcome[SolitaireViewModel] = Outcome((SolitaireViewModel(dragging = None)))
 
   override def updateModel(context: FrameContext[Unit], model: GameState): GlobalEvent => Outcome[GameState] = _ => Outcome(model)
 
-  override def updateViewModel(context: FrameContext[Unit], model: GameState, viewModel: Unit): GlobalEvent => Outcome[Unit] = _ => Outcome(viewModel)
+  override def updateViewModel(context: FrameContext[Unit], model: GameState, viewModel: SolitaireViewModel): GlobalEvent => Outcome[SolitaireViewModel] = _ => Outcome(viewModel)
 
-  override def present(context: FrameContext[Unit], model: GameState, viewModel: Unit): Outcome[SceneUpdateFragment] = Outcome(SceneUpdateFragment.empty)
+  override def present(context: FrameContext[Unit], model: GameState, viewModel: SolitaireViewModel): Outcome[SceneUpdateFragment] = Outcome(SceneUpdateFragment.empty)
 }

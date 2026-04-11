@@ -5,14 +5,14 @@ import indigo.scenes.*
 import indigo.shared.scenegraph.SceneUpdateFragment
 import solitaire.HomeLayout.*
 
-object HomeScene extends Scene[Unit, GameState, Unit] {
+object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
   val name: SceneName = SceneName("home")
   override type SceneModel = GameState
-  override type SceneViewModel = Unit
+  override type SceneViewModel = SolitaireViewModel
 
   override def modelLens: Lens[GameState, GameState] = Lens.keepLatest[GameState]
 
-  override def viewModelLens: Lens[Unit, Unit] = Lens.unit
+  override def viewModelLens: Lens[SolitaireViewModel, SolitaireViewModel] = Lens.keepLatest[SolitaireViewModel]
 
   override def eventFilters: EventFilters = EventFilters.Permissive
 
@@ -45,8 +45,16 @@ object HomeScene extends Scene[Unit, GameState, Unit] {
         case Some(GameElement.UndoButton) => Outcome(state.undo)
         case None => Outcome(state)
 
-    case m: SolitaireEvent.MoveCards => Outcome(state) // handle this
-
+    case m: SolitaireEvent.MoveCards =>
+      (m.source, m.target) match {
+        case (GameElement.Waste, GameElement.Foundation) => state.current.moveWasteToFoundation.map(s => Outcome(state.applyMove(s))).getOrElse(Outcome(state))
+        case (GameElement.Waste, GameElement.TableauCard(col, _)) => state.current.moveWasteToTableau(col).map(s => Outcome(state.applyMove(s))).getOrElse(Outcome(state))
+        case (GameElement.TableauCard(col, cardIndex), GameElement.Foundation) =>
+          if cardIndex == 0 then state.current.moveTableauToFoundation(col).map(s => Outcome(state.applyMove(s))).getOrElse(Outcome(state)) else Outcome(state)
+        case (GameElement.TableauCard(sourceCol, sourceCardIndex), GameElement.TableauCard(targetCol, _)) =>
+          state.current.moveTableauToTableau(sourceCol, sourceCardIndex, targetCol).map(s => Outcome(state.applyMove(s))).getOrElse(Outcome(state))
+        case (_, _) => Outcome(state)
+      }
 
   override def updateViewModel(context: SceneContext[Unit], state: GameState, viewModel: SolitaireViewModel): GlobalEvent => Outcome[SolitaireViewModel] =
     case e: PointerEvent.PointerDown =>
@@ -64,7 +72,7 @@ object HomeScene extends Scene[Unit, GameState, Unit] {
           if tappedCard.faceUp then
             Outcome(viewModel.copy(dragging = Some(DragState(selectedCards, GameElement.TableauCard(col, cardIndex), e.position))))
           else Outcome(viewModel)
-        case None => Outcome(viewModel)
+        case _ => Outcome(viewModel)
     case e: PointerEvent.PointerMove => viewModel.dragging match
       case None => Outcome(viewModel)
       case Some(drag) =>
@@ -80,7 +88,7 @@ object HomeScene extends Scene[Unit, GameState, Unit] {
             Outcome(viewModel.copy(dragging = None))
     case _ => Outcome(viewModel)
 
-  override def present(context: SceneContext[Unit], model: GameState, viewModel: Unit): Outcome[SceneUpdateFragment] =
+  override def present(context: SceneContext[Unit], model: GameState, viewModel: SolitaireViewModel): Outcome[SceneUpdateFragment] =
     val vp = model.viewport
     val bgNode: SceneNode =
       Shape.Box(Rectangle(0, 0, bw(vp), bh(vp)), Fill.Color(RGBA(0.851, 0.922, 0.957, 1.0)))
