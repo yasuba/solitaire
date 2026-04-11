@@ -2,6 +2,7 @@ package solitaire
 
 import indigo.Dice
 import solitaire.Rank.*
+import solitaire.SolitaireModel.flipTopCard
 
 import scala.annotation.tailrec
 
@@ -42,9 +43,6 @@ case class SolitaireModel(
         foundations = foundations.updated(i, card :: f)
       ))
 
-  def flipTopCard(column: List[Card]): List[Card] =
-    column.headOption.map(_.copy(faceUp = true)).toList ::: column.tail
-
   def moveWasteToFoundation: Option[SolitaireModel] =
     waste.headOption.flatMap { c =>
       val maybeMovedToFoundation = moveToFoundation(c)
@@ -54,10 +52,10 @@ case class SolitaireModel(
 
   def moveTableauToFoundation(columnIndex: Int): Option[SolitaireModel] = {
     val column = tableau(columnIndex)
-    column.headOption match {
+    column.lastOption match {
       case Some(card) =>
         moveToFoundation(card)
-          .map(s => s.copy(tableau = s.tableau.updated(columnIndex, flipTopCard(column.tail))))
+          .map(s => s.copy(tableau = s.tableau.updated(columnIndex, flipTopCard(column.init))))
       case None => None
     }
   }
@@ -69,7 +67,7 @@ case class SolitaireModel(
     card.rank.ordinal - 1 == card2.rank.ordinal
 
   def canMoveToTableau(card: Card, column: List[Card]): Boolean =
-    column.headOption match {
+    column.lastOption match {
       case None => card.rank == King
       case Some(topCard) => isOppositeColour(topCard, card) && isOneBelow(topCard, card)
     }
@@ -79,7 +77,7 @@ case class SolitaireModel(
     sequence.headOption.filter(card => canMoveToTableau(card, tableau(toIndex))).map(card => copy(tableau =
       tableau
         .updated(fromIndex, flipTopCard(remaining))
-        .updated(toIndex, sequence ::: tableau(toIndex))
+        .updated(toIndex, tableau(toIndex) ::: sequence)
     ))
   }
 
@@ -88,7 +86,7 @@ case class SolitaireModel(
       .filter(card => canMoveToTableau(card, tableau(toIndex)))
       .map(card => copy(
         waste = waste.tail,
-        tableau = tableau.updated(toIndex, card :: tableau(toIndex))
+        tableau = tableau.updated(toIndex, tableau(toIndex) :+ card)
       ))
 
   def autoCompleteStep: Option[SolitaireModel] =
@@ -105,9 +103,14 @@ object SolitaireModel {
   val initial: SolitaireModel = SolitaireModel(
     List(),
     List(),
-    Vector.empty,
+    Vector.fill(4)(Nil),
     Vector.empty
   )
+
+  def flipTopCard(column: List[Card]): List[Card] =
+    column match
+      case Nil => Nil
+      case _   => column.init :+ column.last.copy(faceUp = true)
 
   def fullDeck: List[Card] =
     Suit.values.flatMap { s =>
@@ -132,7 +135,7 @@ object SolitaireModel {
     val (tableau, remaining) = (1 to 7).foldLeft((Vector.empty[List[Card]], shuffle(fullDeck, dice))) {
       case ((acc, remaining), n) =>
         val (column, rest) = remaining.splitAt(n)
-        val flippedColumn = column.init :+ column.last.copy(faceUp = true)
+        val flippedColumn = column.init ::: column.lastOption.map(_.copy(faceUp = true)).toList
         (acc :+ flippedColumn, rest)
     }
     initial.copy(tableau = tableau, stock = remaining)

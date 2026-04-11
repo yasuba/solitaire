@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+    <!-- iOS specific -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="...">
+
+    <!-- Theme colour (browser chrome on Android) -->
+    <meta name="theme-color" content="#FAEEDA">
+
+    <title>Solitaire</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: #f6d0fc; }
+        #indigo-container { width: 100%; height: 100%; }
+        #indigo-container canvas { display: block; width: 100% !important; height: 100% !important; }
+    </style>
+</head>
+<body>
+<div id="indigo-container"></div>
+<script src="target/scala-3.4.1/solitaire-fastopt/main.js"></script>
+</body>
+</html>

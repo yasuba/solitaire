@@ -7,7 +7,7 @@ case class SolitaireViewModel(
                              )
 
 case class DragState(
-                      card: List[Card],
+                      cards: List[Card],
                       source: GameElement,
                       currentPosition: Point
                     )
