@@ -110,37 +110,47 @@ object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
         case Some(GameElement.Waste) =>
           state.current.waste match {
             case Nil => Outcome(viewModel)
-            case head :: _ => Outcome(viewModel.copy(dragging = Some(DragState(List(head), GameElement.Waste, e.position))))
-              .addGlobalEvents(SolitaireEvent.PickupCards(GameElement.Waste))
+            case head :: _ =>
+              Outcome(viewModel.copy(
+                dragging = Some(DragState(List(head), GameElement.Waste, e.position)),
+                isDragging = false
+              ))
           }
         case Some(GameElement.Foundation(_)) => Outcome(viewModel)
         case Some(GameElement.TableauCard(col, cardIndex)) =>
           val tappedCard = state.current.tableau(col)(cardIndex)
           val selectedCards = state.current.tableau(col).drop(cardIndex)
           if tappedCard.faceUp then
-            Outcome(viewModel.copy(dragging = Some(DragState(selectedCards, GameElement.TableauCard(col, cardIndex), e.position))))
-              .addGlobalEvents(SolitaireEvent.PickupCards(GameElement.TableauCard(col, cardIndex)))
+            Outcome(viewModel.copy(
+              dragging = Some(DragState(selectedCards, GameElement.TableauCard(col, cardIndex), e.position)),
+              isDragging = false
+            ))
           else Outcome(viewModel)
         case _ => Outcome(viewModel)
 
     case e: PointerEvent.PointerMove => viewModel.dragging match
       case None => Outcome(viewModel)
       case Some(drag) =>
-        Outcome(viewModel.copy(dragging = Some(drag.copy(currentPosition = e.position))))
+        if !viewModel.isDragging then
+          Outcome(viewModel.copy(dragging = Some(drag.copy(currentPosition = e.position)), isDragging = true))
+            .addGlobalEvents(SolitaireEvent.PickupCards(drag.source))
+        else
+          Outcome(viewModel.copy(dragging = Some(drag.copy(currentPosition = e.position))))
 
     case e: PointerEvent.PointerUp =>
       viewModel.dragging match
         case None => Outcome(viewModel)
         case Some(drag) =>
-          hitTest(e.position.x, e.position.y, state.current, state.viewport) match
-            case Some(target) =>
-              println(s"hit test found $target")
-              Outcome(viewModel.copy(dragging = None))
-                .addGlobalEvents(SolitaireEvent.MoveCards(drag.source, target))
-            case None =>
-              println("hit test found nothing")
-              Outcome(viewModel.copy(dragging = None))
-                .addGlobalEvents(SolitaireEvent.MoveCards(drag.source, drag.source))
+          if !viewModel.isDragging then
+            Outcome(viewModel.copy(dragging = None, isDragging = false))
+          else
+            hitTest(e.position.x, e.position.y, state.current, state.viewport) match
+              case Some(target) =>
+                Outcome(viewModel.copy(dragging = None, isDragging = false))
+                  .addGlobalEvents(SolitaireEvent.MoveCards(drag.source, target))
+              case None =>
+                Outcome(viewModel.copy(dragging = None, isDragging = false))
+                  .addGlobalEvents(SolitaireEvent.MoveCards(drag.source, drag.source))
 
     case _ => Outcome(viewModel)
 

@@ -3,7 +3,8 @@ package solitaire
 import indigo.Point
 
 case class SolitaireViewModel(
-                               dragging: Option[DragState]
+                               dragging: Option[DragState],
+                               isDragging: Boolean = false
                              )
 
 case class DragState(
