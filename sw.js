@@ -1,5 +1,5 @@
 const BASE = self.location.pathname.replace(/\/sw\.js$/, '');
-const CACHE_NAME = 'solitaire-v3';
+const CACHE_NAME = 'solitaire-v4';
 
 const ASSETS = [
   BASE + '/',
