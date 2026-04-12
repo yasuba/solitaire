@@ -19,144 +19,153 @@ object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
 
   override def subSystems: Set[SubSystem] = Set.empty
 
-  override def updateModel(context: SceneContext[Unit], state: GameState): GlobalEvent => Outcome[GameState] =
-    case ViewportResize(vp) =>
-      IndigoLogger.info(s"Viewport: ${vp.width} x ${vp.height}")
-      val newVp = vp.toSize
-      Outcome(state.copy(viewport = newVp))
+  override def updateModel(context: SceneContext[Unit], state: GameState): GlobalEvent => Outcome[GameState] = event =>
+    val layout = HomeLayout(state.viewport)
+    import layout.*
+    event match {
+      case ViewportResize(vp) =>
+        IndigoLogger.info(s"Viewport: ${vp.width} x ${vp.height}")
+        val newVp = vp.toSize
+        Outcome(state.copy(viewport = newVp))
 
-    case FrameTick =>
-      IndigoLogger.info(s"FrameTick: dealt=${state.dealt} isWon=${state.current.isWon}")
-      if state.current.isWon then Outcome(state)
-      else if !state.dealt then
-        Outcome(state.copy(
-          current = SolitaireModel.deal(context.dice),
-          dealt = true
-        ))
-      else if state.current.canAutoComplete then {
-        if state.autoCompleteTimer >= 0.5 then
-          state.current.autoCompleteStep.map(s => Outcome(state.copy(current = s, timer = state.timer + context.delta.toDouble)))
-            .getOrElse(Outcome(state))
+      case FrameTick =>
+        IndigoLogger.info(s"FrameTick: dealt=${state.dealt} isWon=${state.current.isWon}")
+        if state.current.isWon then Outcome(state)
+        else if !state.dealt then
+          Outcome(state.copy(
+            current = SolitaireModel.deal(context.dice),
+            dealt = true
+          ))
+        else if state.current.canAutoComplete then {
+          if state.autoCompleteTimer >= 0.5 then
+            state.current.autoCompleteStep.map(s => Outcome(state.copy(current = s, timer = state.timer + context.delta.toDouble)))
+              .getOrElse(Outcome(state))
+          else
+            Outcome(state.copy(
+              autoCompleteTimer = state.autoCompleteTimer + context.delta.toDouble,
+              timer = state.timer + context.delta.toDouble
+            ))
+        } else if state.started then Outcome(state.copy(timer = state.timer + context.delta.toDouble))
+        else Outcome(state)
+
+      case e: PointerEvent.PointerUp =>
+        if state.snapBack.isDefined then Outcome(state) // drag in progress — MoveCards handles it
+        else hitTest(e.position.x, e.position.y, state.current, state.viewport) match
+          case Some(GameElement.Stock) => Outcome(state.onStockTapped)
+          case Some(GameElement.Waste) =>
+            state.current.moveWasteToFoundation.map(s => Outcome(state.applyMove(s))).getOrElse(Outcome(state))
+          case Some(GameElement.Foundation(_)) => Outcome(state)
+          case Some(GameElement.TableauCard(col, cardIndex)) =>
+            if cardIndex == state.current.tableau(col).size - 1 then state.current.moveTableauToFoundation(col).map(s => Outcome(state.applyMove(s))).getOrElse(Outcome(state)) else Outcome(state)
+          case Some(GameElement.UndoButton) => Outcome(state.undo)
+          case None => Outcome(state)
+
+      case p: SolitaireEvent.PickupCards =>
+        p.source match
+          case GameElement.Waste =>
+            val cards = state.current.waste.take(1)
+            Outcome(state.copy(
+              current = state.current.copy(waste = state.current.waste.tail),
+              snapBack = Some((GameElement.Waste, cards))
+            ))
+          case GameElement.TableauCard(col, cardIndex) =>
+            val originalColumn = state.current.tableau(col)
+            val remaining = originalColumn.take(cardIndex)
+            Outcome(state.copy(
+              current = state.current.copy(
+                tableau = state.current.tableau.updated(col, flipTopCard(remaining))
+              ),
+              snapBack = Some((p.source, originalColumn))
+            ))
+          case _ => Outcome(state)
+
+      case m: SolitaireEvent.MoveCards =>
+        IndigoLogger.info(s"MoveCards: ${m.source} -> ${m.target}")
+        if m.source == m.target then Outcome(state.failedMove)
         else
-          Outcome(state.copy(
-            autoCompleteTimer = state.autoCompleteTimer + context.delta.toDouble,
-            timer = state.timer + context.delta.toDouble
-          ))
-      } else if state.started then Outcome(state.copy(timer = state.timer + context.delta.toDouble))
-      else Outcome(state)
+          val pickedCards = state.snapBack match
+            case Some((_, originalCards)) => m.source match
+              case GameElement.TableauCard(_, cardIndex) => originalCards.drop(cardIndex)
+              case _ => originalCards
+            case None => Nil
+          if pickedCards.isEmpty then Outcome(state.failedMove)
+          else m.target match
+            case GameElement.Foundation(_) =>
+              pickedCards.headOption
+                .flatMap(card => state.current.moveToFoundation(card))
+                .map(s => Outcome(state.applyMove(s)))
+                .getOrElse(Outcome(state.failedMove))
+            case GameElement.TableauCard(targetCol, _) =>
+              pickedCards.headOption
+                .filter(card => state.current.canMoveToTableau(card, state.current.tableau(targetCol)))
+                .map(_ => state.current.copy(
+                  tableau = state.current.tableau.updated(targetCol, state.current.tableau(targetCol) ::: pickedCards)
+                ))
+                .map(newModel => Outcome(state.applyMove(newModel)))
+                .getOrElse(Outcome(state.failedMove))
+            case _ => Outcome(state.failedMove)
 
-    case e: PointerEvent.PointerUp =>
-      if state.snapBack.isDefined then Outcome(state) // drag in progress — MoveCards handles it
-      else hitTest(e.position.x, e.position.y, state.current, state.viewport) match
-        case Some(GameElement.Stock) => Outcome(state.onStockTapped)
-        case Some(GameElement.Waste) =>
-          state.current.moveWasteToFoundation.map(s => Outcome(state.applyMove(s))).getOrElse(Outcome(state))
-        case Some(GameElement.Foundation(_)) => Outcome(state)
-        case Some(GameElement.TableauCard(col, cardIndex)) =>
-          if cardIndex == state.current.tableau(col).size - 1 then state.current.moveTableauToFoundation(col).map(s => Outcome(state.applyMove(s))).getOrElse(Outcome(state)) else Outcome(state)
-        case Some(GameElement.UndoButton) => Outcome(state.undo)
-        case None => Outcome(state)
+      case _ => Outcome(state)
+    }
 
-    case p: SolitaireEvent.PickupCards =>
-      p.source match
-        case GameElement.Waste =>
-          val cards = state.current.waste.take(1)
-          Outcome(state.copy(
-            current = state.current.copy(waste = state.current.waste.tail),
-            snapBack = Some((GameElement.Waste, cards))
-          ))
-        case GameElement.TableauCard(col, cardIndex) =>
-          val originalColumn = state.current.tableau(col)
-          val remaining = originalColumn.take(cardIndex)
-          Outcome(state.copy(
-            current = state.current.copy(
-              tableau = state.current.tableau.updated(col, flipTopCard(remaining))
-            ),
-            snapBack = Some((p.source, originalColumn))
-          ))
-        case _ => Outcome(state)
-
-    case m: SolitaireEvent.MoveCards =>
-      IndigoLogger.info(s"MoveCards: ${m.source} -> ${m.target}")
-      if m.source == m.target then Outcome(state.failedMove)
-      else
-        val pickedCards = state.snapBack match
-          case Some((_, originalCards)) => m.source match
-            case GameElement.TableauCard(_, cardIndex) => originalCards.drop(cardIndex)
-            case _ => originalCards
-          case None => Nil
-        if pickedCards.isEmpty then Outcome(state.failedMove)
-        else m.target match
-          case GameElement.Foundation(_) =>
-            pickedCards.headOption
-              .flatMap(card => state.current.moveToFoundation(card))
-              .map(s => Outcome(state.applyMove(s)))
-              .getOrElse(Outcome(state.failedMove))
-          case GameElement.TableauCard(targetCol, _) =>
-            pickedCards.headOption
-              .filter(card => state.current.canMoveToTableau(card, state.current.tableau(targetCol)))
-              .map(_ => state.current.copy(
-                tableau = state.current.tableau.updated(targetCol, state.current.tableau(targetCol) ::: pickedCards)
-              ))
-              .map(newModel => Outcome(state.applyMove(newModel)))
-              .getOrElse(Outcome(state.failedMove))
-          case _ => Outcome(state.failedMove)
-
-    case _ => Outcome(state)
-
-  override def updateViewModel(context: SceneContext[Unit], state: GameState, viewModel: SolitaireViewModel): GlobalEvent => Outcome[SolitaireViewModel] =
-    case e: PointerEvent.PointerDown =>
-      hitTest(e.position.x, e.position.y, state.current, state.viewport) match
-        case Some(GameElement.Stock) => Outcome(viewModel)
-        case Some(GameElement.Waste) =>
-          state.current.waste match {
-            case Nil => Outcome(viewModel)
-            case head :: _ =>
+  override def updateViewModel(context: SceneContext[Unit], state: GameState, viewModel: SolitaireViewModel): GlobalEvent => Outcome[SolitaireViewModel] = event =>
+    val layout = HomeLayout(state.viewport)
+    import layout.*
+    event match {
+      case e: PointerEvent.PointerDown =>
+        hitTest(e.position.x, e.position.y, state.current, state.viewport) match
+          case Some(GameElement.Stock) => Outcome(viewModel)
+          case Some(GameElement.Waste) =>
+            state.current.waste match {
+              case Nil => Outcome(viewModel)
+              case head :: _ =>
+                Outcome(viewModel.copy(
+                  dragging = Some(DragState(List(head), GameElement.Waste, e.position)),
+                  isDragging = false
+                ))
+            }
+          case Some(GameElement.Foundation(_)) => Outcome(viewModel)
+          case Some(GameElement.TableauCard(col, cardIndex)) =>
+            val tappedCard = state.current.tableau(col)(cardIndex)
+            val selectedCards = state.current.tableau(col).drop(cardIndex)
+            if tappedCard.faceUp then
               Outcome(viewModel.copy(
-                dragging = Some(DragState(List(head), GameElement.Waste, e.position)),
+                dragging = Some(DragState(selectedCards, GameElement.TableauCard(col, cardIndex), e.position)),
                 isDragging = false
               ))
-          }
-        case Some(GameElement.Foundation(_)) => Outcome(viewModel)
-        case Some(GameElement.TableauCard(col, cardIndex)) =>
-          val tappedCard = state.current.tableau(col)(cardIndex)
-          val selectedCards = state.current.tableau(col).drop(cardIndex)
-          if tappedCard.faceUp then
-            Outcome(viewModel.copy(
-              dragging = Some(DragState(selectedCards, GameElement.TableauCard(col, cardIndex), e.position)),
-              isDragging = false
-            ))
-          else Outcome(viewModel)
-        case _ => Outcome(viewModel)
+            else Outcome(viewModel)
+          case _ => Outcome(viewModel)
 
-    case e: PointerEvent.PointerMove => viewModel.dragging match
-      case None => Outcome(viewModel)
-      case Some(drag) =>
-        if !viewModel.isDragging then
-          Outcome(viewModel.copy(dragging = Some(drag.copy(currentPosition = e.position)), isDragging = true))
-            .addGlobalEvents(SolitaireEvent.PickupCards(drag.source))
-        else
-          Outcome(viewModel.copy(dragging = Some(drag.copy(currentPosition = e.position))))
-
-    case e: PointerEvent.PointerUp =>
-      viewModel.dragging match
+      case e: PointerEvent.PointerMove => viewModel.dragging match
         case None => Outcome(viewModel)
         case Some(drag) =>
           if !viewModel.isDragging then
-            Outcome(viewModel.copy(dragging = None, isDragging = false))
+            Outcome(viewModel.copy(dragging = Some(drag.copy(currentPosition = e.position)), isDragging = true))
+              .addGlobalEvents(SolitaireEvent.PickupCards(drag.source))
           else
-            hitTest(e.position.x, e.position.y, state.current, state.viewport) match
-              case Some(target) =>
-                Outcome(viewModel.copy(dragging = None, isDragging = false))
-                  .addGlobalEvents(SolitaireEvent.MoveCards(drag.source, target))
-              case None =>
-                Outcome(viewModel.copy(dragging = None, isDragging = false))
-                  .addGlobalEvents(SolitaireEvent.MoveCards(drag.source, drag.source))
+            Outcome(viewModel.copy(dragging = Some(drag.copy(currentPosition = e.position))))
 
-    case _ => Outcome(viewModel)
+      case e: PointerEvent.PointerUp =>
+        viewModel.dragging match
+          case None => Outcome(viewModel)
+          case Some(drag) =>
+            if !viewModel.isDragging then
+              Outcome(viewModel.copy(dragging = None, isDragging = false))
+            else
+              hitTest(e.position.x, e.position.y, state.current, state.viewport) match
+                case Some(target) =>
+                  Outcome(viewModel.copy(dragging = None, isDragging = false))
+                    .addGlobalEvents(SolitaireEvent.MoveCards(drag.source, target))
+                case None =>
+                  Outcome(viewModel.copy(dragging = None, isDragging = false))
+                    .addGlobalEvents(SolitaireEvent.MoveCards(drag.source, drag.source))
+
+      case _ => Outcome(viewModel)
+    }
 
   override def present(context: SceneContext[Unit], model: GameState, viewModel: SolitaireViewModel): Outcome[SceneUpdateFragment] =
-    val vp = model.viewport
+    val layout = HomeLayout(model.viewport)
+    import layout.*
 
     def rankToString(rank: Rank): String = rank match {
       case Rank.Ace => "A"
@@ -184,43 +193,43 @@ object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
     def renderCard(card: Card, x: Int, y: Int): Batch[SceneNode] =
       if !card.faceUp then
         Batch(
-          Shape.Box(Rectangle(x, y, cardWidth(model.viewport), cardHeight(model.viewport)), Fill.Color(RGBA.Blue),
+          Shape.Box(Rectangle(x, y, cardWidth, cardHeight), Fill.Color(RGBA.Blue),
             Stroke(2, RGBA.Black))
         )
       else
         val colour = if card.suit.colour == Colour.Red then RGBA.Red else RGBA.Black
         val label = rankToString(card.rank) + suitToString(card.suit)
         Batch(
-          Shape.Box(Rectangle(x, y, cardWidth(model.viewport), cardHeight(model.viewport)), Fill.Color(RGBA.White), Stroke(2, RGBA.Black)),
+          Shape.Box(Rectangle(x, y, cardWidth, cardHeight), Fill.Color(RGBA.White), Stroke(2, RGBA.Black)),
           TextBox(label)
             .withFontSize(Pixels(16))
             .withColor(colour)
             .moveTo(Point(x + 4, y + 4))
-            .withSize(Size(cardWidth(model.viewport), 20))
+            .withSize(Size(cardWidth, 20))
         )
 
     def renderStock(state: SolitaireModel): Batch[SceneNode] =
       state.stock.headOption match {
-        case None => Batch(Shape.Box(Rectangle(stockX, topRowY, cardWidth(model.viewport), cardHeight(model.viewport)), Fill.None, Stroke(2, RGBA.Black)))
+        case None => Batch(Shape.Box(Rectangle(stockX, topRowY, cardWidth, cardHeight), Fill.None, Stroke(2, RGBA.Black)))
         case Some(c) => renderCard(c, stockX, topRowY)
       }
 
     def renderWaste(state: SolitaireModel): Batch[SceneNode] =
       Batch.fromList(state.waste.take(3).reverse.zipWithIndex).flatMap { (card, i) =>
-        renderCard(card, wasteX + i * (cardWidth(model.viewport) / 4), topRowY)
+        renderCard(card, wasteX + i * (cardWidth / 4), topRowY)
       }
 
     def renderFoundations(state: SolitaireModel): Batch[SceneNode] =
       Batch.fromList(state.foundations.zipWithIndex.toList).flatMap { (col, i) =>
-        val x = foundationStartX + i * (cardWidth(model.viewport) + padding(model.viewport))
+        val x = foundationStartX + i * (cardWidth + padding)
         col.headOption match
           case Some(card) => renderCard(card, x, topRowY)
-          case None => Batch(Shape.Box(Rectangle(x, topRowY, cardWidth(model.viewport), cardHeight(model.viewport)), Fill.None, Stroke(2, RGBA.White)))
+          case None => Batch(Shape.Box(Rectangle(x, topRowY, cardWidth, cardHeight), Fill.None, Stroke(2, RGBA.White)))
       }
 
     def renderTableau(state: SolitaireModel): Batch[SceneNode] =
       Batch.fromList(state.tableau.zipWithIndex.toList).flatMap { (column, colIndex) =>
-        val x = tableauStartX + colIndex * (cardWidth(model.viewport) + padding(model.viewport))
+        val x = tableauStartX + colIndex * (cardWidth + padding)
         Batch.fromList(column.zipWithIndex).flatMap { (card, cardIndex) =>
           val y = tableauY + column.take(cardIndex).map(c => if c.faceUp then 30 else 20).sum
           renderCard(card, x, y)
@@ -253,8 +262,8 @@ object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
       )
 
     def renderUndoButton: Batch[SceneNode] = {
-      val x = model.viewport.width - 40 - padding(model.viewport)
-      val y = model.viewport.height - 40 - padding(model.viewport)
+      val x = model.viewport.width - 40 - padding
+      val y = model.viewport.height - 40 - padding
       Batch(
         Shape.Box(Rectangle(x, y, 40, 40), Fill.Color(RGBA.White), Stroke(2, RGBA.Red)),
         TextBox("Undo")
@@ -289,7 +298,7 @@ object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
         )
 
     val bgNode: SceneNode =
-      Shape.Box(Rectangle(0, 0, bw(vp), bh(vp)), Fill.Color(RGBA(0.110, 0.529, 0.035, 1.0)))  // #1c8709
+      Shape.Box(Rectangle(0, 0, bw, bh), Fill.Color(RGBA(0.110, 0.529, 0.035, 1.0))) // #1c8709
 
     val nodes = Batch(bgNode) ++ renderTimer(model) ++ renderStock(model.current)
       ++ renderWaste(model.current)
@@ -302,55 +311,58 @@ object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
     Outcome(SceneUpdateFragment(nodes))
 }
 
-object HomeLayout {
-  def bh(viewport: Size): Int = viewport.height
+case class HomeLayout(vp: Size) {
 
-  def bw(viewport: Size): Int = viewport.width
-  
+  def bh: Int = vp.height
+
+  def bw: Int = vp.width
+
   val margin = 5
 
-  def cardWidth(vp: Size): Int = (vp.width - 2 * margin) / 8 
-  def cardHeight(vp: Size): Int = (cardWidth(vp) * 1.4).toInt
-  def padding(vp: Size): Int = (vp.width - 7 * cardWidth(vp)) / 8
+  def cardWidth: Int = (vp.width - 2 * margin) / 8
 
-  // Top row
-  val topRowY = 20
-  val stockX = 20
-  val wasteX = 110 // stockX + cardWidth + padding
+  def cardHeight: Int = (cardWidth * 1.4).toInt
 
-  // Foundations start further right
-  val foundationStartX = 300 // leaves gap after waste
+  def padding: Int = (vp.width - 7 * cardWidth) / 8
 
-  // Tableau
-  val tableauY = 160 // below top row with some gap
-  val tableauStartX = 20
+  def topRowY: Int = padding
 
-  def withinCard(x: Double, y: Double, cardX: Double, cardY: Double, vp: Size): Boolean =
-    x >= cardX && x <= cardX + cardWidth(vp) &&
-      y >= cardY && y <= cardY + cardHeight(vp)
+  def stockX: Int = padding
 
-  def tappedStock(tx: Double, ty: Double, vp: Size): Boolean =
-    withinCard(tx, ty, stockX, topRowY, vp)
+  def wasteX: Int = stockX + cardWidth + padding
 
-  def tappedWaste(tx: Double, ty: Double, vp: Size): Boolean =
-    withinCard(tx, ty, wasteX, topRowY, vp)
+  def foundationStartX: Int = vp.width - 4 * (cardWidth + padding)
 
-  def tappedFoundation(index: Int, tx: Double, ty: Double, vp: Size): Boolean =
-    val foundationX = foundationStartX + index * (cardWidth(vp) + padding(vp))
-    withinCard(tx, ty, foundationX, topRowY, vp)
+  def tableauStartX: Int = padding
 
-  def tappedTableau(tx: Double, ty: Double, tableau: Vector[List[Card]], vp: Size): Option[(Int, Int)] = {
-    val columnIndex = ((tx - tableauStartX) / (cardWidth(vp) + padding(vp))).toInt
+  def tableauY: Int = topRowY + cardHeight + padding
+
+  def withinCard(x: Double, y: Double, cardX: Double, cardY: Double): Boolean =
+    x >= cardX && x <= cardX + cardWidth &&
+      y >= cardY && y <= cardY + cardHeight
+
+  def tappedStock(tx: Double, ty: Double): Boolean =
+    withinCard(tx, ty, stockX, topRowY)
+
+  def tappedWaste(tx: Double, ty: Double): Boolean =
+    withinCard(tx, ty, wasteX, topRowY)
+
+  def tappedFoundation(index: Int, tx: Double, ty: Double): Boolean =
+    val foundationX = foundationStartX + index * (cardWidth + padding)
+    withinCard(tx, ty, foundationX, topRowY)
+
+  def tappedTableau(tx: Double, ty: Double, tableau: Vector[List[Card]]): Option[(Int, Int)] = {
+    val columnIndex = ((tx - tableauStartX) / (cardWidth + padding)).toInt
     if columnIndex < 0 || columnIndex > 6 then None
     else {
       val column = tableau(columnIndex)
       if column.isEmpty then
-        if ty >= tableauY && ty <= tableauY + cardHeight(vp) then Some((columnIndex, 0))
+        if ty >= tableauY && ty <= tableauY + cardHeight then Some((columnIndex, 0))
         else None
       else
         column.zipWithIndex.findLast { (card, cardIndex) =>
           val cardY = tableauY + column.take(cardIndex).map(c => if c.faceUp then 30 else 20).sum
-          ty >= cardY && ty <= cardY + cardHeight(vp)
+          ty >= cardY && ty <= cardY + cardHeight
         }.map { (card, cardIndex) =>
           (columnIndex, cardIndex)
         }
@@ -358,18 +370,19 @@ object HomeLayout {
   }
 
   def tappedUndoButton(tx: Double, ty: Double, viewport: Size): Boolean = {
-    val buttonX = viewport.width - 40 - padding(viewport)
-    val buttonY = viewport.height - 40 - padding(viewport)
+    val buttonX = viewport.width - 40 - padding
+    val buttonY = viewport.height - 40 - padding
     tx >= buttonX && tx <= buttonX + 40 &&
       ty >= buttonY && ty <= buttonY + 40
   }
 
   def hitTest(tx: Double, ty: Double, state: SolitaireModel, viewport: Size): Option[GameElement] =
     Option.when(tappedUndoButton(tx, ty, viewport))(GameElement.UndoButton)
-      .orElse(Option.when(tappedStock(tx, ty, viewport))(GameElement.Stock)
-        .orElse(Option.when(tappedWaste(tx, ty, viewport))(GameElement.Waste))
-        .orElse((0 to 3).collectFirst { case i if tappedFoundation(i, tx, ty, viewport) => GameElement.Foundation(i) })
-        .orElse(tappedTableau(tx, ty, state.tableau, viewport).map(GameElement.TableauCard(_, _))))
+      .orElse(Option.when(tappedStock(tx, ty))(GameElement.Stock)
+        .orElse(Option.when(tappedWaste(tx, ty))(GameElement.Waste))
+        .orElse((0 to 3).collectFirst { case i if tappedFoundation(i, tx, ty) => GameElement.Foundation(i) })
+        .orElse(tappedTableau(tx, ty, state.tableau).map(GameElement.TableauCard(_, _))))
+
 }
 
 enum GameElement:
