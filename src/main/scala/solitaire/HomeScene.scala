@@ -58,6 +58,7 @@ object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
           case Some(GameElement.TableauCard(col, cardIndex)) =>
             if cardIndex == state.current.tableau(col).size - 1 then state.current.moveTableauToFoundation(col).map(s => Outcome(state.applyMove(s))).getOrElse(Outcome(state)) else Outcome(state)
           case Some(GameElement.UndoButton) => Outcome(state.undo)
+          case Some(GameElement.DealAgainButton) => Outcome(GameState.initial)
           case None => Outcome(state)
 
       case p: SolitaireEvent.PickupCards =>
@@ -275,6 +276,20 @@ object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
       )
     }
 
+    def renderDealAgainButton: Batch[SceneNode] = {
+      val x = model.viewport.width - 80 - padding*2
+      val y = model.viewport.height - 40 - padding
+      Batch(
+        Shape.Box(Rectangle(x, y, 40, 40), Fill.Color(RGBA.White), Stroke(2, RGBA.Red)),
+        TextBox("Deal")
+          .withFontSize(Pixels(14))
+          .withColor(RGBA.Red)
+          .alignCenter
+          .withSize(Size(40, 40))
+          .moveTo(Point(x, y + 10))
+      )
+    }
+
     def renderWinScreen(model: GameState): Batch[SceneNode] =
       if !model.current.isWon then Batch.empty
       else
@@ -306,6 +321,7 @@ object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
       ++ renderTableau(model.current)
       ++ renderDragging(viewModel)
       ++ renderUndoButton
+      ++ renderDealAgainButton
       ++ renderWinScreen(model)
 
     Outcome(SceneUpdateFragment(nodes))
@@ -380,8 +396,16 @@ case class HomeLayout(vp: Size) {
       ty >= buttonY && ty <= buttonY + 40
   }
 
+  def tappedDealAgainButton(tx: Double, ty: Double, viewport: Size): Boolean = {
+    val buttonX = viewport.width - 80 - padding*2
+    val buttonY = viewport.height - 40 - padding
+    tx >= buttonX && tx <= buttonX + 40 &&
+      ty >= buttonY && ty <= buttonY + 40
+  }
+
   def hitTest(tx: Double, ty: Double, state: SolitaireModel, viewport: Size): Option[GameElement] =
     Option.when(tappedUndoButton(tx, ty, viewport))(GameElement.UndoButton)
+      .orElse(Option.when(tappedDealAgainButton(tx, ty, viewport))(GameElement.DealAgainButton))
       .orElse(Option.when(tappedStock(tx, ty))(GameElement.Stock)
         .orElse(Option.when(tappedWaste(tx, ty))(GameElement.Waste))
         .orElse((0 to 3).collectFirst { case i if tappedFoundation(i, tx, ty) => GameElement.Foundation(i) })
@@ -395,6 +419,7 @@ enum GameElement:
   case Foundation(index: Int)
   case TableauCard(columnIndex: Int, cardIndex: Int)
   case UndoButton
+  case DealAgainButton
 
 enum SolitaireEvent extends GlobalEvent:
   case MoveCards(source: GameElement, target: GameElement)
