@@ -1,6 +1,7 @@
 package solitaire
 
 import indigo.*
+import indigo.shared.config.ResizePolicy
 import indigo.scenes.{Scene, SceneName}
 
 object Main extends IndigoGame[Unit, Unit, GameState, SolitaireViewModel] {
@@ -19,6 +20,7 @@ object Main extends IndigoGame[Unit, Unit, GameState, SolitaireViewModel] {
       BootResult.configOnly(
         GameConfig.default
           .withClearColor(RGBA(0.980, 0.957, 0.925, 1.0))
+          .withResizePolicy(ResizePolicy.Resize)
       )
     )
 

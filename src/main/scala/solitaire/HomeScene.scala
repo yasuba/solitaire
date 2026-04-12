@@ -202,10 +202,10 @@ object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
         Batch(
           Shape.Box(Rectangle(x, y, cardWidth, cardHeight), Fill.Color(RGBA.White), Stroke(2, RGBA.Black)),
           TextBox(label)
-            .withFontSize(Pixels(16))
+            .withFontSize(Pixels(fontSize))
             .withColor(colour)
-            .moveTo(Point(x + 4, y + 4))
-            .withSize(Size(cardWidth, 20))
+            .moveTo(Point(x + 2, y + 2))
+            .withSize(Size(cardWidth, fontSize + 4))
         )
 
     def renderStock(state: SolitaireModel): Batch[SceneNode] =
@@ -231,7 +231,7 @@ object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
       Batch.fromList(state.tableau.zipWithIndex.toList).flatMap { (column, colIndex) =>
         val x = tableauStartX + colIndex * (cardWidth + padding)
         Batch.fromList(column.zipWithIndex).flatMap { (card, cardIndex) =>
-          val y = tableauY + column.take(cardIndex).map(c => if c.faceUp then 30 else 20).sum
+          val y = tableauY + column.take(cardIndex).map(c => if c.faceUp then faceUpOffset else faceDownOffset).sum
           renderCard(card, x, y)
         }
       }
@@ -241,7 +241,7 @@ object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
         case None => Batch.empty
         case Some(drag) => Batch.fromList(drag.cards.zipWithIndex).flatMap { (card, i) =>
           val x = drag.currentPosition.x
-          val y = drag.currentPosition.y + drag.cards.take(i).map(c => if c.faceUp then 30 else 20).sum
+          val y = drag.currentPosition.y + drag.cards.take(i).map(c => if c.faceUp then faceUpOffset else faceDownOffset).sum
           renderCard(card, x, y)
         }
 
@@ -337,6 +337,10 @@ case class HomeLayout(vp: Size) {
 
   def tableauY: Int = topRowY + cardHeight + padding
 
+  def faceUpOffset: Int = (cardHeight * 0.25).toInt.max(12)
+  def faceDownOffset: Int = (cardHeight * 0.15).toInt.max(8)
+  def fontSize: Int = (cardWidth * 0.3).toInt.max(10)
+
   def withinCard(x: Double, y: Double, cardX: Double, cardY: Double): Boolean =
     x >= cardX && x <= cardX + cardWidth &&
       y >= cardY && y <= cardY + cardHeight
@@ -361,7 +365,7 @@ case class HomeLayout(vp: Size) {
         else None
       else
         column.zipWithIndex.findLast { (card, cardIndex) =>
-          val cardY = tableauY + column.take(cardIndex).map(c => if c.faceUp then 30 else 20).sum
+          val cardY = tableauY + column.take(cardIndex).map(c => if c.faceUp then faceUpOffset else faceDownOffset).sum
           ty >= cardY && ty <= cardY + cardHeight
         }.map { (card, cardIndex) =>
           (columnIndex, cardIndex)
