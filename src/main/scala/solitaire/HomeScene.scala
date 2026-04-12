@@ -184,43 +184,43 @@ object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
     def renderCard(card: Card, x: Int, y: Int): Batch[SceneNode] =
       if !card.faceUp then
         Batch(
-          Shape.Box(Rectangle(x, y, cardWidth, cardHeight), Fill.Color(RGBA.Blue),
+          Shape.Box(Rectangle(x, y, cardWidth(model.viewport), cardHeight(model.viewport)), Fill.Color(RGBA.Blue),
             Stroke(2, RGBA.Black))
         )
       else
         val colour = if card.suit.colour == Colour.Red then RGBA.Red else RGBA.Black
         val label = rankToString(card.rank) + suitToString(card.suit)
         Batch(
-          Shape.Box(Rectangle(x, y, cardWidth, cardHeight), Fill.Color(RGBA.White), Stroke(2, RGBA.Black)),
+          Shape.Box(Rectangle(x, y, cardWidth(model.viewport), cardHeight(model.viewport)), Fill.Color(RGBA.White), Stroke(2, RGBA.Black)),
           TextBox(label)
             .withFontSize(Pixels(16))
             .withColor(colour)
             .moveTo(Point(x + 4, y + 4))
-            .withSize(Size(cardWidth, 20))
+            .withSize(Size(cardWidth(model.viewport), 20))
         )
 
     def renderStock(state: SolitaireModel): Batch[SceneNode] =
       state.stock.headOption match {
-        case None => Batch(Shape.Box(Rectangle(stockX, topRowY, cardWidth, cardHeight), Fill.None, Stroke(2, RGBA.Black)))
+        case None => Batch(Shape.Box(Rectangle(stockX, topRowY, cardWidth(model.viewport), cardHeight(model.viewport)), Fill.None, Stroke(2, RGBA.Black)))
         case Some(c) => renderCard(c, stockX, topRowY)
       }
 
     def renderWaste(state: SolitaireModel): Batch[SceneNode] =
       Batch.fromList(state.waste.take(3).reverse.zipWithIndex).flatMap { (card, i) =>
-        renderCard(card, wasteX + i * (cardWidth / 4), topRowY)
+        renderCard(card, wasteX + i * (cardWidth(model.viewport) / 4), topRowY)
       }
 
     def renderFoundations(state: SolitaireModel): Batch[SceneNode] =
       Batch.fromList(state.foundations.zipWithIndex.toList).flatMap { (col, i) =>
-        val x = foundationStartX + i * (cardWidth + padding)
+        val x = foundationStartX + i * (cardWidth(model.viewport) + padding(model.viewport))
         col.headOption match
           case Some(card) => renderCard(card, x, topRowY)
-          case None => Batch(Shape.Box(Rectangle(x, topRowY, cardWidth, cardHeight), Fill.None, Stroke(2, RGBA.White)))
+          case None => Batch(Shape.Box(Rectangle(x, topRowY, cardWidth(model.viewport), cardHeight(model.viewport)), Fill.None, Stroke(2, RGBA.White)))
       }
 
     def renderTableau(state: SolitaireModel): Batch[SceneNode] =
       Batch.fromList(state.tableau.zipWithIndex.toList).flatMap { (column, colIndex) =>
-        val x = tableauStartX + colIndex * (cardWidth + padding)
+        val x = tableauStartX + colIndex * (cardWidth(model.viewport) + padding(model.viewport))
         Batch.fromList(column.zipWithIndex).flatMap { (card, cardIndex) =>
           val y = tableauY + column.take(cardIndex).map(c => if c.faceUp then 30 else 20).sum
           renderCard(card, x, y)
@@ -253,8 +253,8 @@ object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
       )
 
     def renderUndoButton: Batch[SceneNode] = {
-      val x = model.viewport.width - 40 - padding
-      val y = model.viewport.height - 40 - padding
+      val x = model.viewport.width - 40 - padding(model.viewport)
+      val y = model.viewport.height - 40 - padding(model.viewport)
       Batch(
         Shape.Box(Rectangle(x, y, 40, 40), Fill.Color(RGBA.White), Stroke(2, RGBA.Red)),
         TextBox("Undo")
@@ -306,10 +306,12 @@ object HomeLayout {
   def bh(viewport: Size): Int = viewport.height
 
   def bw(viewport: Size): Int = viewport.width
+  
+  val margin = 5
 
-  val cardWidth = 80
-  val cardHeight = 120 // exactly 2:3 ratio, close enough to standard
-  val padding = 10
+  def cardWidth(vp: Size): Int = (vp.width - 2 * margin) / 8 
+  def cardHeight(vp: Size): Int = (cardWidth(vp) * 1.4).toInt
+  def padding(vp: Size): Int = (vp.width - 7 * cardWidth(vp)) / 8
 
   // Top row
   val topRowY = 20
@@ -323,32 +325,32 @@ object HomeLayout {
   val tableauY = 160 // below top row with some gap
   val tableauStartX = 20
 
-  def withinCard(x: Double, y: Double, cardX: Double, cardY: Double): Boolean =
-    x >= cardX && x <= cardX + cardWidth &&
-      y >= cardY && y <= cardY + cardHeight
+  def withinCard(x: Double, y: Double, cardX: Double, cardY: Double, vp: Size): Boolean =
+    x >= cardX && x <= cardX + cardWidth(vp) &&
+      y >= cardY && y <= cardY + cardHeight(vp)
 
-  def tappedStock(tx: Double, ty: Double): Boolean =
-    withinCard(tx, ty, stockX, topRowY)
+  def tappedStock(tx: Double, ty: Double, vp: Size): Boolean =
+    withinCard(tx, ty, stockX, topRowY, vp)
 
-  def tappedWaste(tx: Double, ty: Double): Boolean =
-    withinCard(tx, ty, wasteX, topRowY)
+  def tappedWaste(tx: Double, ty: Double, vp: Size): Boolean =
+    withinCard(tx, ty, wasteX, topRowY, vp)
 
-  def tappedFoundation(index: Int, tx: Double, ty: Double): Boolean =
-    val foundationX = foundationStartX + index * (cardWidth + padding)
-    withinCard(tx, ty, foundationX, topRowY)
+  def tappedFoundation(index: Int, tx: Double, ty: Double, vp: Size): Boolean =
+    val foundationX = foundationStartX + index * (cardWidth(vp) + padding(vp))
+    withinCard(tx, ty, foundationX, topRowY, vp)
 
-  def tappedTableau(tx: Double, ty: Double, tableau: Vector[List[Card]]): Option[(Int, Int)] = {
-    val columnIndex = ((tx - tableauStartX) / (cardWidth + padding)).toInt
+  def tappedTableau(tx: Double, ty: Double, tableau: Vector[List[Card]], vp: Size): Option[(Int, Int)] = {
+    val columnIndex = ((tx - tableauStartX) / (cardWidth(vp) + padding(vp))).toInt
     if columnIndex < 0 || columnIndex > 6 then None
     else {
       val column = tableau(columnIndex)
       if column.isEmpty then
-        if ty >= tableauY && ty <= tableauY + cardHeight then Some((columnIndex, 0))
+        if ty >= tableauY && ty <= tableauY + cardHeight(vp) then Some((columnIndex, 0))
         else None
       else
         column.zipWithIndex.findLast { (card, cardIndex) =>
           val cardY = tableauY + column.take(cardIndex).map(c => if c.faceUp then 30 else 20).sum
-          ty >= cardY && ty <= cardY + cardHeight
+          ty >= cardY && ty <= cardY + cardHeight(vp)
         }.map { (card, cardIndex) =>
           (columnIndex, cardIndex)
         }
@@ -356,18 +358,18 @@ object HomeLayout {
   }
 
   def tappedUndoButton(tx: Double, ty: Double, viewport: Size): Boolean = {
-    val buttonX = viewport.width - 40 - padding
-    val buttonY = viewport.height - 40 - padding
+    val buttonX = viewport.width - 40 - padding(viewport)
+    val buttonY = viewport.height - 40 - padding(viewport)
     tx >= buttonX && tx <= buttonX + 40 &&
       ty >= buttonY && ty <= buttonY + 40
   }
 
   def hitTest(tx: Double, ty: Double, state: SolitaireModel, viewport: Size): Option[GameElement] =
     Option.when(tappedUndoButton(tx, ty, viewport))(GameElement.UndoButton)
-      .orElse(Option.when(tappedStock(tx, ty))(GameElement.Stock)
-        .orElse(Option.when(tappedWaste(tx, ty))(GameElement.Waste))
-        .orElse((0 to 3).collectFirst { case i if tappedFoundation(i, tx, ty) => GameElement.Foundation(i) })
-        .orElse(tappedTableau(tx, ty, state.tableau).map(GameElement.TableauCard(_, _))))
+      .orElse(Option.when(tappedStock(tx, ty, viewport))(GameElement.Stock)
+        .orElse(Option.when(tappedWaste(tx, ty, viewport))(GameElement.Waste))
+        .orElse((0 to 3).collectFirst { case i if tappedFoundation(i, tx, ty, viewport) => GameElement.Foundation(i) })
+        .orElse(tappedTableau(tx, ty, state.tableau, viewport).map(GameElement.TableauCard(_, _))))
 }
 
 enum GameElement:
