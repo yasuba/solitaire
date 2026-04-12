@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-
+    <!-- PWA manifest -->
+    <link rel="manifest" href="manifest.json">
     <!-- iOS specific -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="...">
+    <link rel="apple-touch-icon" href="assets/icons/cards-180.png">
 
     <!-- Theme colour (browser chrome on Android) -->
     <meta name="theme-color" content="#FAEEDA">
@@ -23,5 +25,13 @@
 <body>
 <div id="indigo-container"></div>
 <script src="main.js"></script>
+<!-- Register service worker — add this just before </body> -->
+<script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/solitaire/sw.js');
+      });
+    }
+</script>
 </body>
 </html>

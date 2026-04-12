@@ -21,6 +21,7 @@ object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
 
   override def updateModel(context: SceneContext[Unit], state: GameState): GlobalEvent => Outcome[GameState] =
     case ViewportResize(vp) =>
+      IndigoLogger.info(s"Viewport: ${vp.width} x ${vp.height}")
       val newVp = vp.toSize
       Outcome(state.copy(viewport = newVp))
 
