@@ -1,10 +1,11 @@
 const BASE = self.location.pathname.replace(/\/sw\.js$/, '');
-const CACHE_NAME = 'solitaire-v4';
+const CACHE_NAME = 'solitaire-v5';
 
 const ASSETS = [
   BASE + '/',
   BASE + '/index.html',
   BASE + '/manifest.json',
+  BASE + '/main.js',
   BASE + '/assets/icons/cards-192.png',
   BASE + '/assets/icons/cards-512.png',
 ];
