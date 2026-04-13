@@ -369,8 +369,10 @@ case class HomeLayout(vp: Size) {
   def tappedStock(tx: Double, ty: Double): Boolean =
     withinCard(tx, ty, stockX, topRowY)
 
-  def tappedWaste(tx: Double, ty: Double): Boolean =
-    withinCard(tx, ty, wasteX, topRowY)
+  def tappedWaste(tx: Double, ty: Double, wasteSize: Int): Boolean =
+    val fan = (wasteSize.min(3) - 1).max(0) * (cardWidth / 4)
+    tx >= wasteX && tx <= wasteX + cardWidth + fan &&
+      ty >= topRowY && ty <= topRowY + cardHeight
 
   def tappedFoundation(index: Int, tx: Double, ty: Double): Boolean =
     val foundationX = foundationStartX + index * (cardWidth + padding)
@@ -412,7 +414,7 @@ case class HomeLayout(vp: Size) {
     Option.when(tappedUndoButton(tx, ty, viewport))(GameElement.UndoButton)
       .orElse(Option.when(tappedDealAgainButton(tx, ty, viewport))(GameElement.DealAgainButton))
       .orElse(Option.when(tappedStock(tx, ty))(GameElement.Stock)
-        .orElse(Option.when(tappedWaste(tx, ty))(GameElement.Waste))
+        .orElse(Option.when(tappedWaste(tx, ty, state.waste.size))(GameElement.Waste))
         .orElse((0 to 3).collectFirst { case i if tappedFoundation(i, tx, ty) => GameElement.Foundation(i) })
         .orElse(tappedTableau(tx, ty, state.tableau).map(GameElement.TableauCard(_, _))))
 
