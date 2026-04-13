@@ -58,7 +58,7 @@ object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
           case Some(GameElement.TableauCard(col, cardIndex)) =>
             if cardIndex == state.current.tableau(col).size - 1 then state.current.moveTableauToFoundation(col).map(s => Outcome(state.applyMove(s))).getOrElse(Outcome(state)) else Outcome(state)
           case Some(GameElement.UndoButton) => Outcome(state.undo)
-          case Some(GameElement.DealAgainButton) => Outcome(GameState.initial)
+          case Some(GameElement.DealAgainButton) => Outcome(state.copy(current = SolitaireModel.initial, timer = 0.0, dealt = false, started = false))
           case None => Outcome(state)
 
       case p: SolitaireEvent.PickupCards =>
