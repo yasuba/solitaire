@@ -169,7 +169,7 @@ object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
     import layout.*
 
     def rankToString(rank: Rank): String = rank match {
-      case Rank.Ace => "A"
+      case Rank.Ace => "Ace"
       case Rank.Two => "2"
       case Rank.Three => "3"
       case Rank.Four => "4"
@@ -179,34 +179,30 @@ object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
       case Rank.Eight => "8"
       case Rank.Nine => "9"
       case Rank.Ten => "10"
-      case Rank.Jack => "J"
-      case Rank.Queen => "Q"
-      case Rank.King => "K"
+      case Rank.Jack => "Jack"
+      case Rank.Queen => "Queen"
+      case Rank.King => "King"
     }
 
     def suitToString(suit: Suit): String = suit match {
-      case Suit.Clubs => "♣"
-      case Suit.Spades => "♠"
-      case Suit.Hearts => "♥"
-      case Suit.Diamonds => "♦"
+      case Suit.Clubs => "club"
+      case Suit.Spades => "spade"
+      case Suit.Hearts => "heart"
+      case Suit.Diamonds => "diamond"
     }
+
+
+    def assetName (card: Card): AssetName =
+      AssetName(s"${card.suit.toString}${rankToString(card.rank)}")
 
     def renderCard(card: Card, x: Int, y: Int): Batch[SceneNode] =
       if !card.faceUp then
         Batch(
-          Shape.Box(Rectangle(x, y, cardWidth, cardHeight), Fill.Color(RGBA.Blue),
-            Stroke(2, RGBA.Black))
+          Graphic(Rectangle(x, y, cardWidth, cardHeight), Material.Bitmap(AssetName("blueBack")))
         )
       else
-        val colour = if card.suit.colour == Colour.Red then RGBA.Red else RGBA.Black
-        val label = rankToString(card.rank) + suitToString(card.suit)
         Batch(
-          Shape.Box(Rectangle(x, y, cardWidth, cardHeight), Fill.Color(RGBA.White), Stroke(2, RGBA.Black)),
-          TextBox(label)
-            .withFontSize(Pixels(fontSize))
-            .withColor(colour)
-            .moveTo(Point(x + 2, y + 2))
-            .withSize(Size(cardWidth, fontSize + 4))
+          Graphic(Rectangle(x, y, cardWidth, cardHeight), Material.Bitmap(assetName(card)))
         )
 
     def renderStock(state: SolitaireModel): Batch[SceneNode] =
