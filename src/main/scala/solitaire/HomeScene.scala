@@ -192,8 +192,8 @@ object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
     }
 
 
-    def assetName (card: Card): AssetName =
-      AssetName(s"${card.suit.toString}${rankToString(card.rank)}")
+    def assetName(card: Card): AssetName =
+      AssetName(s"${suitToString(card.suit)}${rankToString(card.rank)}")
 
     def renderCard(card: Card, x: Int, y: Int): Batch[SceneNode] =
       if !card.faceUp then
