@@ -15,8 +15,8 @@ object Main extends IndigoGame[Unit, Unit, GameState, SolitaireViewModel] {
 
   override def eventFilters: EventFilters = EventFilters.Permissive
 
-  private val suits = List("heart", "diamond", "club", "spade")
-  private val ranks = List("Ace", "2", "3", "4", "5", "6", "7", "8", "9", "10", "Jack", "Queen", "King")
+  private val suits = List("hearts", "diamonts", "clubs", "spades")
+  private val ranks = List("A", "2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K")
 
   private val cardAssets: Set[AssetType] =
     (for {

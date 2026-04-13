@@ -169,7 +169,7 @@ object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
     import layout.*
 
     def rankToString(rank: Rank): String = rank match {
-      case Rank.Ace => "Ace"
+      case Rank.Ace => "A"
       case Rank.Two => "2"
       case Rank.Three => "3"
       case Rank.Four => "4"
@@ -178,17 +178,17 @@ object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
       case Rank.Seven => "7"
       case Rank.Eight => "8"
       case Rank.Nine => "9"
-      case Rank.Ten => "10"
-      case Rank.Jack => "Jack"
-      case Rank.Queen => "Queen"
-      case Rank.King => "King"
+      case Rank.Ten => "T"
+      case Rank.Jack => "J"
+      case Rank.Queen => "Q"
+      case Rank.King => "K"
     }
 
     def suitToString(suit: Suit): String = suit match {
-      case Suit.Clubs => "club"
-      case Suit.Spades => "spade"
-      case Suit.Hearts => "heart"
-      case Suit.Diamonds => "diamond"
+      case Suit.Clubs => "clubs"
+      case Suit.Spades => "spades"
+      case Suit.Hearts => "hearts"
+      case Suit.Diamonds => "diamonts"
     }
 
 
