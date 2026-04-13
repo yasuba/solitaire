@@ -141,8 +141,13 @@ object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
         case None => Outcome(viewModel)
         case Some(drag) =>
           if !viewModel.isDragging then
-            Outcome(viewModel.copy(dragging = Some(drag.copy(currentPosition = e.position)), isDragging = true))
-              .addGlobalEvents(SolitaireEvent.PickupCards(drag.source))
+            val dx = e.position.x - drag.currentPosition.x
+            val dy = e.position.y - drag.currentPosition.y
+            if dx * dx + dy * dy > 100 then // 10px dead zone
+              Outcome(viewModel.copy(dragging = Some(drag.copy(currentPosition = e.position)), isDragging = true))
+                .addGlobalEvents(SolitaireEvent.PickupCards(drag.source))
+            else
+              Outcome(viewModel)
           else
             Outcome(viewModel.copy(dragging = Some(drag.copy(currentPosition = e.position))))
 
