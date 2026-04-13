@@ -195,14 +195,23 @@ object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
     def assetName(card: Card): AssetName =
       AssetName(s"${suitToString(card.suit)}${rankToString(card.rank)}")
 
+    val imgWidth = 75
+    val imgHeight = 113
+    val scaleX = cardWidth.toDouble / imgWidth
+    val scaleY = cardHeight.toDouble / imgHeight
+
     def renderCard(card: Card, x: Int, y: Int): Batch[SceneNode] =
       if !card.faceUp then
         Batch(
-          Graphic(Rectangle(x, y, cardWidth, cardHeight), Material.Bitmap(AssetName("blueBack")))
+          Graphic(Rectangle(0, 0, imgWidth, imgHeight), Material.Bitmap(AssetName("blueBack")))
+            .moveTo(Point(x, y))
+            .scaleBy(Vector2(scaleX, scaleY))
         )
       else
         Batch(
-          Graphic(Rectangle(x, y, cardWidth, cardHeight), Material.Bitmap(assetName(card)))
+          Graphic(Rectangle(0, 0, imgWidth, imgHeight), Material.Bitmap(assetName(card)))
+            .moveTo(Point(x, y))
+            .scaleBy(Vector2(scaleX, scaleY))
         )
 
     def renderStock(state: SolitaireModel): Batch[SceneNode] =
