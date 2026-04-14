@@ -93,7 +93,7 @@ case class SolitaireModel(
     (moveWasteToFoundation :: (0 to 6).toList.map(col => moveTableauToFoundation(col))).collectFirst { case Some(s) => s }
     
   def canAutoComplete: Boolean =
-    stock.isEmpty && tableau.flatten.forall(_.faceUp)
+    stock.isEmpty && waste.isEmpty && tableau.flatten.forall(_.faceUp)
 
   def isWon: Boolean =
     foundations.flatten.size == 52

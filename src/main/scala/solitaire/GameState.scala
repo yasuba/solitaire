@@ -25,7 +25,7 @@ final case class GameState(
   def recycleWaste: GameState =
     copy(
       current = current.copy(
-        stock = current.waste.map(_.copy(faceUp = false)),
+        stock = current.waste.reverse.map(_.copy(faceUp = false)),
         waste = Nil
       )
     )
