@@ -331,8 +331,8 @@ object HomeScene extends Scene[Unit, GameState, SolitaireViewModel] {
       ++ renderTableau(model.current)
       ++ renderDragging(viewModel)
       ++ renderUndoButton
-      ++ renderDealAgainButton
       ++ renderWinScreen(model)
+      ++ renderDealAgainButton
 
     Outcome(SceneUpdateFragment(nodes))
 }
