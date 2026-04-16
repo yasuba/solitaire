@@ -363,7 +363,7 @@ case class HomeLayout(vp: Size) {
 
   def tableauY: Int = topRowY + cardHeight + padding
 
-  def faceUpOffset: Int = (cardHeight * 0.25).toInt.max(12)
+  def faceUpOffset: Int = (cardHeight * 0.35).toInt.max(12)
   def faceDownOffset: Int = (cardHeight * 0.15).toInt.max(8)
   def fontSize: Int = (cardWidth * 0.3).toInt.max(10)
 
